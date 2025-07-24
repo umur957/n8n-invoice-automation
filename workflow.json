@@ -1,0 +1,860 @@
+{
+  "name": "My workflow 3",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "includeSpamTrash": true,
+          "readStatus": "unread",
+          "sender": "your-invoice-email@example.com"
+        },
+        "options": {
+          "dataPropertyAttachmentsPrefixName": "attachment",
+          "downloadAttachments": true
+        }
+      },
+      "id": "b153a83e-1ba5-44db-9825-e973bc979ec1",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2480,
+        400
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst newItems = [];\n\nfor (const item of items) {\n  if (!item.binary || Object.keys(item.binary).length === 0) {\n    continue;\n  }\n  const attachmentKeys = Object.keys(item.binary);\n  for (const key of attachmentKeys) {\n    const newItem = {\n      json: { ...item.json },\n      binary: {}\n    };\n    newItem.json.fileName = item.binary[key].fileName;\n    newItem.json.mimeType = item.binary[key].mimeType;\n    newItem.binary.data = item.binary[key];\n    newItems.push(newItem);\n  }\n}\nreturn newItems;"
+      },
+      "id": "7caa4570-c2b9-452f-b0c5-c08a97541384",
+      "name": "Split Attachments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2280,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "58d45dec-a8b2-45d8-83e9-b1df8be17b95",
+              "leftValue": "={{ $json.mimeType }}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "133aa31e-3de5-41da-81a4-b6d360b56de5",
+      "name": "Filter PDF",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -2080,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "01_Incoming"
+        },
+        "options": {}
+      },
+      "id": "f44715c2-1d4d-4a38-8108-b149165ef44e",
+      "name": "Archive PDF to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1680,
+        400
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/files",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer $MISTRALAPIKEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "purpose",
+              "value": "ocr"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8da9b029-a4ff-4dc4-b0ac-3340ec133f73",
+      "name": "Upload to Mistral for OCR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1280,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.mistral.ai/v1/files/{{ $json.id }}/url",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "expiry",
+              "value": "24"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer $MISTRALAPIKEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d92b34a5-d518-4f0d-ba46-553849b4d82b",
+      "name": "Get Signed URL from Mistral",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1080,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.fileName }}",
+                    "rightValue": "DEINV",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    },
+                    "id": "6507053e-eada-4e41-bda7-b00295a118bf"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Invoice"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4ec57011-c88c-4dc4-a491-e2884e288784",
+      "name": "Route by Filename",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1880,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.mistral.ai/v1/ocr",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer $MISTRALAPIKEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"mistral-ocr-latest\",\n  \"document\": {\n    \"type\": \"document_url\",\n    \"document_url\": \"{{ $json.url }}\"\n  },\n  \"include_image_base64\": true\n} ",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "37543cf2-34e7-4e57-8565-de0915abf3aa",
+      "name": "Process OCR with Mistral",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -660,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "id": "5076da67-81e7-4dec-8de8-c6c8316e96f0",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -500,
+        560
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert data extraction AI specialized in German IKEA invoices. Your task is to extract structured data from the provided German invoice text and map it to the precise English JSON schema below.\n\n**JSON Schema to Follow:**\n{\n  \"invoice_summary\": {\n    \"invoice_date\": \"Find 'Rechnungsdatum' or 'Bestelldatum'. Format as DD-MM-YYYY. If multiple dates, prioritize 'Rechnungsdatum'.\",\n    \"invoice_number\": \"Extract the value associated with 'Rechnungsnummer'.\",\n    \"order_number\": \"Extract the value associated with 'Bestellnummer' or 'Ordernummer'.\",\n    \"total_amount\": \"Find the final total ('Rechnungssumme:' or 'Gesamtsumme inkl. MwSt.'). Return as a numeric value. Use '.' as decimal separator, no currency symbols (e.g., 24.89).\",\n    \"customer_name\": \"Extract the name under 'Käufer:'. If a full name like 'John Doe', extract it. If only a company name or email address is found, extract that. If no clear name, return blank.\",\n    \"shipping_address\": \"Extract the full address block under 'Lieferadresse:'. Concatenate multiple lines with commas. Example: '123 Example St, Unit 5, 12345 Berlin, Germany'\",\n    \"document_type\": \"INVOICE\" // This is a fixed value based on the previous classification.\n  },\n  \"invoice_items\": [\n    {\n      \"product_code\": \"Extract the value from the 'Artikelnummer' column for each line item.\",\n      \"product_name\": \"Extract the value from the 'Artikelname/Bezeichnung' column for each line item. Include any product modifiers like color, size, or specific descriptions.\",\n      \"quantity\": \"Extract the numeric value from the 'Menge' column for each line item.\",\n      \"unit_price\": \"Extract the numeric value from the 'Einzelpreis inkl MwSt.' column for each line item. Use '.' as decimal separator, no currency symbols.\",\n      \"line_total\": \"Extract the numeric value from the 'Gesamtbetrag inkl. MwSt.' column for each line item. Use '.' as decimal separator, no currency symbols.\"\n    }\n  ]\n}\n\n**Rules for Extraction:**\n1.  Your response MUST BE a single, valid JSON object and nothing else.\n2.  Do NOT include any explanatory text, markdown formatting (like ```json), or wrapping keys (like \"output\").\n3.  If a field's value cannot be found or is genuinely empty, return an empty string (\"\") for text fields, 0 for numeric fields, or an empty array `[]` for `invoice_items`.\n4.  Extract ALL product line items from the 'Artikelnummer' table. Ensure no items are missed and their order is preserved.\n5.  Pay close attention to German terms and their English equivalents for accurate extraction into the specified JSON keys.\n\n**German Document Text for Extraction:**\n{{ $json.pages[0].markdown }}",
+        "options": {}
+      },
+      "id": "e33a91a9-d3b8-4acd-818c-439b1527fdab",
+      "name": "Extract Invoice Data with AI",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEETS_DOCUMENT_ID",
+          "mode": "list",
+          "cachedResultName": "IKEA_Invoice_Database"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Invoices"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "invoice_id": "={{ $json.invoice_id }}",
+            "email_message_id": "={{ $json.email_message_id }}",
+            "document_type": "={{ $json.parsed_data.invoice_summary.document_type }}",
+            "invoice_date": "={{ $json.parsed_data.invoice_summary.invoice_date }}",
+            "invoice_number": "={{ $json.parsed_data.invoice_summary.invoice_number }}",
+            "order_number": "={{ $json.parsed_data.invoice_summary.order_number }}",
+            "total_amount": "={{ $json.parsed_data.invoice_summary.total_amount }}",
+            "customer_name": "={{ $json.parsed_data.invoice_summary.customer_name }}",
+            "shipping_address": "={{ $json.parsed_data.invoice_summary.shipping_address }}",
+            "google_drive_link": "={{ $('Download Archived PDF').item.json.webViewLink }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "invoice_id",
+              "displayName": "invoice_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_message_id",
+              "displayName": "email_message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "document_type",
+              "displayName": "document_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_date",
+              "displayName": "invoice_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_number",
+              "displayName": "invoice_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "order_number",
+              "displayName": "order_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_amount",
+              "displayName": "total_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "shipping_address",
+              "displayName": "shipping_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "google_drive_link",
+              "displayName": "google_drive_link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "output",
+              "displayName": "output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "parsed_data",
+              "displayName": "parsed_data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "fdc44a2c-b206-47ff-a5ca-4e52e5197041",
+      "name": "Append to Invoices Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        40,
+        240
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEETS_DOCUMENT_ID",
+          "mode": "list",
+          "cachedResultName": "IKEA_Invoice_Database"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "268613162",
+          "mode": "list",
+          "cachedResultName": "Invoice_Items"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "item_id": "={{ $json.invoice_id_parent }}_{{ $json.product_code }}",
+            "invoice_id": "={{ $json.invoice_id_parent }}",
+            "product_code": "={{ $json.product_code }}",
+            "product_name": "={{ $json.product_name }}",
+            "quantity": "={{ $json.quantity }}",
+            "unit_price": "={{ $json.unit_price }}",
+            "line_total": "={{ $json.line_total }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "item_id",
+              "displayName": "item_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_id",
+              "displayName": "invoice_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_code",
+              "displayName": "product_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "product_name",
+              "displayName": "product_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "quantity",
+              "displayName": "quantity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "unit_price",
+              "displayName": "unit_price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "line_total",
+              "displayName": "line_total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "fc4bfcda-4890-4245-818d-d7918bc92433",
+      "name": "Append to Invoice_Items Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        240,
+        560
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": []
+      },
+      "id": "25f5b0f0-f86c-462f-a28f-39161b4b19d0",
+      "name": "Label Email as Processed",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        40,
+        400
+      ],
+      "webhookId": "fd963eee-7393-4b88-adb9-cabac1cb3fe6",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": "={{ $('Archive PDF to Drive').item.json.id }}",
+        "options": {}
+      },
+      "id": "070abf66-5672-4c3a-9f4f-25e586cd938e",
+      "name": "Download Archived PDF",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1480,
+        400
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "",
+          "name": ""
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst newItems = [];\n\nfor (const item of items) {\n  // AI'dan gelen ham metni al\n  const ai_output = item.json.output;\n  let parsed_data;\n\n  // 1. AI'dan gelen metni ayrıştır ve JSON nesnesine çevir\n  try {\n    parsed_data = JSON.parse(ai_output.replace(/```json\\s*|```/g, '').trim());\n  } catch (e) {\n    console.error(\"HATA: JSON ayrıştırma başarısız oldu:\", item);\n    continue; // Bu öğe hatalıysa atla ve devam et\n  }\n\n  // 2. Fatura özetindeki metinleri temizle\n  for (const key in parsed_data.invoice_summary) {\n    if (typeof parsed_data.invoice_summary[key] === 'string') {\n      parsed_data.invoice_summary[key] = parsed_data.invoice_summary[key].trim();\n    }\n  }\n\n  // 3. Ürün kalemlerindeki metinleri temizle\n  if (Array.isArray(parsed_data.invoice_items)) {\n    parsed_data.invoice_items = parsed_data.invoice_items.map(lineItem => {\n      const cleanedLineItem = {};\n      for (const key in lineItem) {\n        if (typeof lineItem[key] === 'string') {\n          cleanedLineItem[key] = lineItem[key].trim();\n        } else {\n          cleanedLineItem[key] = lineItem[key]; // Sayısal değerleri koru\n        }\n      }\n      return cleanedLineItem;\n    });\n  }\n  \n  // 4. EKSİK VERİLERİ EKLE: Bu en önemli kısım!\n  const finalJson = {\n    ...item.json, // Önceki adımlardan gelen tüm verileri koru\n    parsed_data: parsed_data, // Temizlenmiş ve ayrıştırılmış veriyi ekle\n    invoice_id: $execution.id, // Benzersiz fatura ID'sini oluştur\n    email_message_id: $('Gmail Trigger').item.json.id // E-posta ID'sini ekle\n  };\n\n  // 5. Nihai veri paketini oluştur ve listeye ekle\n  newItems.push({\n    json: finalJson,\n    binary: item.binary // Olası binary veriyi koru\n  });\n}\n\nreturn newItems;"
+      },
+      "id": "b9c86aaf-902c-4323-9e8c-ae0605f94254",
+      "name": "Parse, Clean, and Prepare Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\nconst allInvoiceLineItems = [];\n\nfor (const item of allItems) {\n    // 1. Adımda oluşturulan ana fatura ID'sini al\n    const parentInvoiceId = item.json.invoice_id; \n\n    // `parsed_data` ve `invoice_items`'in varlığını kontrol et\n    if (item.json.parsed_data && Array.isArray(item.json.parsed_data.invoice_items)) {\n        \n        for (const lineItem of item.json.parsed_data.invoice_items) {\n            allInvoiceLineItems.push({\n                json: {\n                    ...lineItem, // Ürün kaleminin tüm verilerini al\n                    invoice_id_parent: parentInvoiceId // Ana fatura ID'sini ekle\n                }\n            });\n        }\n    }\n}\n\nreturn allInvoiceLineItems;"
+      },
+      "id": "e98da2e5-1ea2-4bc2-905b-e4e54f6edb5c",
+      "name": "Prepare Items for Loop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        40,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "1",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -380,
+        620
+      ],
+      "id": "894f9325-9bd0-4d33-8847-eddef1c370fa",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -860,
+        400
+      ],
+      "id": "2e2142c7-f577-41ca-b67b-773b0f1e1cba",
+      "name": "Wait",
+      "webhookId": "799b365c-4e67-4c9f-814d-ee5c3516996f"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Split Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Attachments": {
+      "main": [
+        [
+          {
+            "node": "Filter PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter PDF": {
+      "main": [
+        [
+          {
+            "node": "Route by Filename",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Archive PDF to Drive": {
+      "main": [
+        [
+          {
+            "node": "Download Archived PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to Mistral for OCR": {
+      "main": [
+        [
+          {
+            "node": "Get Signed URL from Mistral",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Signed URL from Mistral": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Filename": {
+      "main": [
+        [
+          {
+            "node": "Archive PDF to Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process OCR with Mistral": {
+      "main": [
+        [
+          {
+            "node": "Extract Invoice Data with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extract Invoice Data with AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Invoice Data with AI": {
+      "main": [
+        [
+          {
+            "node": "Parse, Clean, and Prepare Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Archived PDF": {
+      "main": [
+        [
+          {
+            "node": "Upload to Mistral for OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse, Clean, and Prepare Data": {
+      "main": [
+        [
+          {
+            "node": "Append to Invoices Sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Label Email as Processed",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Items for Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Items for Loop": {
+      "main": [
+        [
+          {
+            "node": "Append to Invoice_Items Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Extract Invoice Data with AI",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Process OCR with Mistral",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "34a885ee-89c4-4306-baf0-1e6c41e3c2ee",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": ""
+  },
+  "id": "cnbWcVeLF0LGABjK",
+  "tags": []
+}

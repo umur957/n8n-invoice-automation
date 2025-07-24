@@ -1,0 +1,27 @@
+# Environment variables - NEVER commit these
+.env
+.env.*
+!/.env.example
+
+# n8n local database file (if used)
+database.sqlite
+database.sqlite-journal
+
+# Operating System generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*~
+
+# Credentials and secrets
+credentials.json
+*.pem
