@@ -1,5 +1,5 @@
 # Smart Invoice Processing Automation with n8n
-
+![Smart Invoice Processing Automation with n8n Demo](images/simsizvideo-ezgif.com-video-to-gif-converter.gif)
 This project is an end-to-end automation system built with n8n that automatically processes PDF invoices from incoming emails, parses the data, and saves it in a structured format to Google Sheets.
 
 This system is designed to replace traditional data entry processes, saving time, minimizing human error, and making invoice data instantly available for analysis.
